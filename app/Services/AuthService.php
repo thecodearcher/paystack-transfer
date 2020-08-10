@@ -4,18 +4,11 @@ namespace App\Services;
 
 use App\Exceptions\ApiError;
 use App\Models\User;
-use App\Services\UserService;
 use Illuminate\Support\Facades\Hash;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthService
 {
-    protected $userService;
-    public function __construct(UserService $userService)
-    {
-        $this->userService = $userService;
-    }
-
     public function createUserAccount(array $userData)
     {
         $userData['password'] = Hash::make($userData["password"]);
