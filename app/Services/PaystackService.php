@@ -22,46 +22,59 @@ class PaystackService
 
     public function requestFundTransfer(array $payoutData)
     {
-        $recipientResponse = $this->createTransferRecipient($payoutData);
-        if ($recipientResponse['status']) {
-            $transferData['recipient_code'] = $recipientResponse['data']['recipient_code'];
-            $transferData['amount'] = $payoutData['amount'];
+        try {
+            $recipientResponse = $this->createTransferRecipient($payoutData);
+            if ($recipientResponse['status']) {
+                $transferData['recipient_code'] = $recipientResponse['data']['recipient_code'];
+                $transferData['amount'] = $payoutData['amount'];
 
-            $transferResponse = $this->initiateTransfer($transferData);
-            if ($transferResponse['status']) {
-                return $transferResponse['data'];
+                $transferResponse = $this->initiateTransfer($transferData);
+                if ($transferResponse['status']) {
+                    return $transferResponse['data'];
+                }
             }
-        }
 
-        throw new ApiError('Failed to request fund transfer!');
+            throw new ApiError('Failed to request fund transfer!');
+        } catch (\Throwable $th) {
+            throw new ApiError('Failed to request fund transfer!', null, 502);
+        }
     }
 
     public function getTransferHistory(int $page, int $perPage)
     {
-        $url = "{$this->baseUrl}/transfer?page={$page}&perPage={$perPage}";
 
-        $response = Http::withHeaders($this->headers)->get($url);
-        $body = $response->json();
+        try {
+            $response = Http::withHeaders($this->headers)->get("{$this->baseUrl}/transfer?page={$page}&perPage={$perPage}");
+            $body = $response->json();
 
-        if ($response->successful()) {
-            return $body['data'];
+            if ($response->successful()) {
+                return $body['data'];
+            }
+
+            throw new ApiError($body['message'] ?? 'Failed to retrieve transfer history');
+
+        } catch (\Throwable $th) {
+            throw new ApiError('Failed to retrieve transfer history', null, 502);
         }
 
-        throw new ApiError($body['message']);
     }
 
     public function getTransfer(string $transferId)
     {
-        $url = "{$this->baseUrl}/transfer/{$transferId}";
+        try {
+            $response = Http::withHeaders($this->headers)->get("{$this->baseUrl}/transfer/{$transferId}");
+            $body = $response->json();
 
-        $response = Http::withHeaders($this->headers)->get($url);
-        $body = $response->json();
+            if ($response->successful()) {
+                return ($response->json());
+            }
 
-        if ($response->successful()) {
-            return ($response->json());
+            throw new ApiError($body['message'] ?? 'Failed to retrieve transfer!');
+
+        } catch (\Throwable $th) {
+            throw new ApiError('Failed to retrieve transfer!', null, 502);
         }
 
-        throw new ApiError($body['message']);
     }
 
     private function createTransferRecipient(array $bankDetails)
@@ -84,6 +97,7 @@ class PaystackService
 
     private function initiateTransfer(array $transferData)
     {
+
         $response = Http::withHeaders($this->headers)->post("{$this->baseUrl}/transfer", [
             "source" => "balance",
             "recipient" => $transferData['recipient_code'],
