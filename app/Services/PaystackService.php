@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\ApiError;
+use App\Jobs\ProcessFailedTransfers;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Http;
 
@@ -23,21 +24,28 @@ class PaystackService
     public function requestFundTransfer(array $payoutData)
     {
         try {
-            $recipientResponse = $this->createTransferRecipient($payoutData);
-            if ($recipientResponse['status']) {
-                $transferData['recipient_code'] = $recipientResponse['data']['recipient_code'];
-                $transferData['amount'] = $payoutData['amount'];
-
-                $transferResponse = $this->initiateTransfer($transferData);
-                if ($transferResponse['status']) {
-                    return $transferResponse['data'];
-                }
-            }
-
-            throw new ApiError('Failed to request fund transfer!');
-        } catch (\Throwable $th) {
-            throw new ApiError('Failed to request fund transfer!', null, 502);
+            return $this->requestPaystackTransfer($payoutData);
+        } catch (\Illuminate\Http\Client\HttpClientException $th) {
+            ProcessFailedTransfers::dispatch($payoutData)->delay(now()->addHour());
+            return ['status' => 'pending'];
         }
+    }
+
+    public function requestPaystackTransfer(array $payoutData)
+    {
+        $recipientResponse = $this->createTransferRecipient($payoutData);
+        if ($recipientResponse['status']) {
+            $transferData['recipient_code'] = $recipientResponse['data']['recipient_code'];
+            $transferData['amount'] = $payoutData['amount'];
+
+            $transferResponse = $this->initiateTransfer($transferData);
+            if ($transferResponse['status']) {
+                //TODO: Send user email for successful transfer
+                return $transferResponse['data'];
+            }
+        }
+
+        throw new ApiError('Failed to request fund transfer!');
     }
 
     public function getTransferHistory(int $page, int $perPage)
@@ -53,7 +61,7 @@ class PaystackService
 
             throw new ApiError($body['message'] ?? 'Failed to retrieve transfer history');
 
-        } catch (\Throwable $th) {
+        } catch (\Illuminate\Http\Client\HttpClientException $th) {
             throw new ApiError('Failed to retrieve transfer history', null, 502);
         }
 
@@ -71,7 +79,7 @@ class PaystackService
 
             throw new ApiError($body['message'] ?? 'Failed to retrieve transfer!');
 
-        } catch (\Throwable $th) {
+        } catch (\Illuminate\Http\Client\HttpClientException $th) {
             throw new ApiError('Failed to retrieve transfer!', null, 502);
         }
 
@@ -92,7 +100,11 @@ class PaystackService
             return $body;
         }
 
-        throw new ApiError("Failed to retrieve recipient details: {$body['message']}");
+        if ($response->clientError()) {
+            throw new ApiError("Failed to retrieve recipient details: {$body['message']}");
+        }
+
+        $response->throw();
     }
 
     private function initiateTransfer(array $transferData)
@@ -110,7 +122,11 @@ class PaystackService
             return $body;
         }
 
-        throw new ApiError("Failed to initiate transfer: {$body['message']}");
+        if ($response->clientError()) {
+            throw new ApiError("Failed to initiate transfer: {$body['message']}");
+        }
+
+        $response->throw();
     }
 
 }

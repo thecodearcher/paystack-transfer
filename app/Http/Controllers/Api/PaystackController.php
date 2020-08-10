@@ -18,6 +18,9 @@ class PaystackController extends Controller
     public function requestFundTransfer(RequestTransferRequest $request)
     {
         $response = $this->paystackService->requestFundTransfer($request->validated());
+        if (isset($response['status']) && $response['status'] == 'pending') {
+            return $this->custom(null, 'Fund transfer request queued!', false, 202);
+        }
         return $this->success($response, 'Fund Transfer Request Successful!');
     }
 
