@@ -8,4 +8,4 @@ The documentation lives [here](https://documenter.getpostman.com/view/4428062/T1
 
 ## Note
 - To run this locally, you will need a [Paystack](https://dashboard.paystack.com/#/login) secret key.
-- You will need to turn off OTP authorisation for Transfers from you dashboard.
+- You will need to turn off OTP authorization for Transfers from your dashboard.
