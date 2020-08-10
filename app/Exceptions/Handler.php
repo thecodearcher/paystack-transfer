@@ -2,11 +2,16 @@
 
 namespace App\Exceptions;
 
+use App\Traits\ApiResponseTrait;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 class Handler extends ExceptionHandler
 {
+    use ApiResponseTrait;
+
     /**
      * A list of the exception types that are not reported.
      *
@@ -50,6 +55,13 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Throwable $exception)
     {
+        if (!($exception instanceof ValidationException)) {
+            if ($exception instanceof HttpException) {
+                return $this->custom(null, $exception->getMessage(), false, $exception->getStatusCode());
+            }
+        }
+
         return parent::render($request, $exception);
     }
+
 }
